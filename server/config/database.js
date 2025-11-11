@@ -8,11 +8,16 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      ssl: true,
+      sslValidate: false,
+      tlsAllowInvalidCertificates: true,
+      tlsAllowInvalidHostnames: true
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error('Database connection error:', error);
+    console.log('Server will continue without database connection');
     process.exit(1);
   }
 };
