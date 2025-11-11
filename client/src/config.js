@@ -7,8 +7,8 @@ const config = {
   },
   // For production
   production: {
-    API_BASE_URL: 'https://your-backend-app.onrender.com/api',
-    IMAGE_BASE_URL: 'https://your-backend-app.onrender.com'
+    API_BASE_URL: 'https://happy-cart-backend-rf1j.onrender.com/api',
+    IMAGE_BASE_URL: 'https://happy-cart-backend-rf1j.onrender.com'
   }
 };
 
