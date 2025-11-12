@@ -4,6 +4,14 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://your-frontend-app.vercel.app' // Replace with your actual Vercel URL
+  ],
+  credentials: true
+}));
+
 dotenv.config();
 
 const app = express();
