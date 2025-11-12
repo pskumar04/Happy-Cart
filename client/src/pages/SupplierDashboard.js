@@ -936,10 +936,12 @@ const SupplierDashboard = () => {
       };
 
       if (editingProduct) {
-        await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
+        // await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
+        const response = await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
         toast.success('Product updated successfully');
       } else {
-        await axios.post(`${API_URL}/products`, formData, config);
+        // await axios.post(`${API_URL}/products`, formData, config);
+        const response = await axios.post(`${API_URL}/products`, formData, config);
         toast.success('Product added successfully');
       }
       
@@ -972,7 +974,9 @@ const SupplierDashboard = () => {
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
-      toast.error(error.response?.data?.message || 'Error saving product. Please check the console for details.');
+      // toast.error(error.response?.data?.message || 'Error saving product. Please check the console for details.');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Error saving product';
+      toast.error(errorMessage);
     } finally {
       setUploadingImages(false);
     }

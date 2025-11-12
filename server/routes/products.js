@@ -7,7 +7,7 @@ const path = require('path');
 
 const router = express.Router();
 
-// Get all products with filtering
+// Get all products with filtering - FIXED bestseller filter
 router.get('/', async (req, res) => {
   try {
     const { category, bestseller, search, page = 1, limit = 12 } = req.query;
@@ -18,6 +18,7 @@ router.get('/', async (req, res) => {
       filter.category = category;
     }
     
+    // FIXED: Proper bestseller filtering
     if (bestseller === 'true') {
       filter.isBestSeller = true;
     }
@@ -44,7 +45,11 @@ router.get('/', async (req, res) => {
       total
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Get products error:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 });
 
@@ -67,8 +72,8 @@ router.get('/:id', async (req, res) => {
 // Add new product with image upload (Supplier only)
 router.post('/', auth, uploadProductImages, async (req, res) => {
   try {
-    console.log('Product creation request body:', req.body);
-    console.log('Uploaded files:', req.files);
+    console.log('📦 Product creation request body:', req.body);
+    console.log('🖼️ Uploaded files:', req.files);
 
     if (req.user.role !== 'supplier') {
       return res.status(403).json({ message: 'Only suppliers can add products' });
@@ -118,7 +123,7 @@ router.post('/', auth, uploadProductImages, async (req, res) => {
         parsedSizeStock = typeof sizeStock === 'string' ? JSON.parse(sizeStock) : sizeStock;
       }
     } catch (parseError) {
-      console.error('Error parsing JSON fields:', parseError);
+      console.error('❌ Error parsing JSON fields:', parseError);
       // Clean up uploaded files
       if (req.files) {
         req.files.forEach(file => {
@@ -171,9 +176,12 @@ router.post('/', auth, uploadProductImages, async (req, res) => {
   }
 });
 
-// Update product (Supplier only)
+// Update product (Supplier only) - FIXED with better error handling
 router.put('/:id', auth, uploadProductImages, async (req, res) => {
   try {
+    console.log('🔄 Updating product:', req.params.id);
+    console.log('📦 Update data:', req.body);
+
     const product = await Product.findById(req.params.id);
     
     if (!product) {
@@ -215,7 +223,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
         parsedSizeStock = typeof sizeStock === 'string' ? JSON.parse(sizeStock) : sizeStock;
       }
     } catch (parseError) {
-      console.error('Error parsing JSON fields:', parseError);
+      console.error('❌ Error parsing JSON fields:', parseError);
       return res.status(400).json({ 
         message: 'Invalid data format for sizes, colors, or sizeStock' 
       });
@@ -241,7 +249,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
     // Add new images if any
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => `/uploads/${file.filename}`);
-      updateData.$push = { images: { $each: newImages } };
+      updateData.images = [...product.images, ...newImages];
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -250,10 +258,17 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
       { new: true, runValidators: true }
     ).populate('supplier', 'name email phone address logisticsName');
 
-    res.json(updatedProduct);
+    console.log('✅ Product updated successfully:', req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product: updatedProduct
+    });
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error('❌ Error updating product:', error);
     res.status(500).json({ 
+      success: false,
       message: 'Error updating product', 
       error: error.message 
     });

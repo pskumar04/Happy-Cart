@@ -14,11 +14,6 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  sizeStock: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
   originalPrice: {
     type: Number,
     required: true,
@@ -26,7 +21,6 @@ const productSchema = new mongoose.Schema({
   },
   supplierCost: {
     type: Number,
-    required: true,
     default: 0
   },
   category: {
@@ -55,6 +49,7 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
+  // FIXED: Removed duplicate sizeStock field
   sizeStock: {
     type: Object,
     default: {}
@@ -91,7 +86,7 @@ const productSchema = new mongoose.Schema({
       },
       comment: {
         type: String,
-        default: '' // Changed from required to default empty string
+        default: ''
       },
       createdAt: {
         type: Date,
@@ -101,6 +96,16 @@ const productSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Update totalStock when sizeStock changes
+productSchema.pre('save', function(next) {
+  if (this.sizeStock && typeof this.sizeStock === 'object') {
+    this.stock = Object.values(this.sizeStock).reduce(
+      (sum, stock) => sum + (parseInt(stock) || 0), 0
+    );
+  }
+  next();
 });
 
 module.exports = mongoose.model('Product', productSchema);

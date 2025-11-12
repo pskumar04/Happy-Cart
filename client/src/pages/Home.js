@@ -13,8 +13,9 @@ const Home = () => {
 
   const fetchBestSellers = async () => {
     try {
-      const response = await axios.get(`${IMAGE_BASE_URL}/products?bestseller=true&limit=8`);
-      setBestSellers(response.data.products);
+      // FIXED: Use API_URL instead of IMAGE_BASE_URL for API calls
+      const response = await axios.get(`${API_URL}/products?bestseller=true&limit=8`);
+      setBestSellers(response.data.products || []);
     } catch (error) {
       console.error('Error fetching best sellers:', error);
     } finally {
