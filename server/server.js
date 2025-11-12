@@ -8,7 +8,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://your-frontend-app.vercel.app' // Replace with your actual Vercel URL
+    'https://happycartbysatish.vercel.app/' // Replace with your actual Vercel URL
   ],
   credentials: true
 }));
