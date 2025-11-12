@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const app = express();
 
 app.use(cors({
   origin: [
@@ -14,7 +15,6 @@ app.use(cors({
 
 dotenv.config();
 
-const app = express();
 
 // Middleware
 app.use(cors());
