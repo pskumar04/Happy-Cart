@@ -1,26 +1,42 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter (using Gmail as example)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER, // Your email
-    pass: process.env.EMAIL_PASS  // Your app password
-  }
-});
+// Check if we're in production (Render) and disable emails
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Test email configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.log('❌ Email configuration error:', error);
-  } else {
-    console.log('✅ Email server is ready to send messages');
-  }
-});
+// Create transporter only if not in production
+let transporter;
+
+if (!isProduction) {
+  // Only create transporter for local development
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER, // Your Gmail address
+      pass: process.env.EMAIL_PASS  // Your Gmail app password
+    }
+  });
+
+  // Test email configuration only in development
+  transporter.verify((error, success) => {
+    if (error) {
+      console.log('❌ Email configuration error:', error);
+    } else {
+      console.log('✅ Email server is ready to send messages');
+    }
+  });
+} else {
+  console.log('📧 Email service disabled in production (Render SMTP restriction)');
+}
 
 // Cancel order notification to supplier
 exports.sendCancelNotification = async (supplierEmail, order, supplierName, cancelReason) => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] Cancel notification would be sent to supplier: ${supplierEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Supplier: ${supplierName}`);
+      return;
+    }
+
     const mailOptions = {
       from: `"Happy Cart" <${process.env.EMAIL_USER}>`,
       to: supplierEmail,
@@ -80,14 +96,19 @@ exports.sendCancelNotification = async (supplierEmail, order, supplierName, canc
     await transporter.sendMail(mailOptions);
     console.log('✅ Cancel notification email sent to:', supplierEmail);
   } catch (error) {
-    console.error('❌ Error sending cancel notification email:', error);
-    throw error;
+    console.error('❌ Error sending cancel notification email:', error.message);
   }
 };
 
 // Return request notification to supplier
 exports.sendReturnRequestNotification = async (supplierEmail, order, supplierName, returnReason, type) => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] ${type === 'return' ? 'Return' : 'Exchange'} request would be sent to supplier: ${supplierEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Type: ${type}`);
+      return;
+    }
+
     const mailOptions = {
       from: `"Happy Cart" <${process.env.EMAIL_USER}>`,
       to: supplierEmail,
@@ -153,14 +174,19 @@ exports.sendReturnRequestNotification = async (supplierEmail, order, supplierNam
     await transporter.sendMail(mailOptions);
     console.log('✅ Return request notification email sent to:', supplierEmail);
   } catch (error) {
-    console.error('❌ Error sending return request notification email:', error);
-    throw error;
+    console.error('❌ Error sending return request notification email:', error.message);
   }
 };
 
 // Order confirmation email to customer
 exports.sendOrderConfirmation = async (customerEmail, order, customerName) => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] Order confirmation would be sent to customer: ${customerEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Amount: $${order.totalAmount}`);
+      return;
+    }
+
     const mailOptions = {
       from: `"Happy Cart" <${process.env.EMAIL_USER}>`,
       to: customerEmail,
@@ -236,14 +262,19 @@ exports.sendOrderConfirmation = async (customerEmail, order, customerName) => {
     await transporter.sendMail(mailOptions);
     console.log('✅ Order confirmation email sent to:', customerEmail);
   } catch (error) {
-    console.error('❌ Error sending order confirmation email:', error);
-    throw error;
+    console.error('❌ Error sending order confirmation email:', error.message);
   }
 };
 
 // Order notification to supplier
 exports.sendSupplierNotification = async (supplierEmail, order, supplierName) => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] Supplier notification would be sent to: ${supplierEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Supplier: ${supplierName}`);
+      return;
+    }
+
     const mailOptions = {
       from: `"Happy Cart" <${process.env.EMAIL_USER}>`,
       to: supplierEmail,
@@ -326,14 +357,19 @@ exports.sendSupplierNotification = async (supplierEmail, order, supplierName) =>
     await transporter.sendMail(mailOptions);
     console.log('✅ Supplier notification email sent to:', supplierEmail);
   } catch (error) {
-    console.error('❌ Error sending supplier notification email:', error);
-    throw error;
+    console.error('❌ Error sending supplier notification email:', error.message);
   }
 };
 
 // Return status update notification to customer
 exports.sendReturnStatusUpdate = async (customerEmail, order, customerName, item, newStatus, adminNotes = '') => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] Return status update would be sent to customer: ${customerEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Status: ${newStatus}`);
+      return;
+    }
+
     const statusMessages = {
       return_approved: 'Your return request has been approved',
       return_rejected: 'Your return request has been rejected',
@@ -405,15 +441,19 @@ exports.sendReturnStatusUpdate = async (customerEmail, order, customerName, item
     await transporter.sendMail(mailOptions);
     console.log('✅ Return status update email sent to:', customerEmail);
   } catch (error) {
-    console.error('❌ Error sending return status update email:', error);
-    throw error;
+    console.error('❌ Error sending return status update email:', error.message);
   }
 };
 
 // Order status update email
-// Enhanced status update email with more details
 exports.sendStatusUpdate = async (customerEmail, order, customerName, trackingInfo = null) => {
   try {
+    if (isProduction) {
+      console.log(`📧 [PRODUCTION] Status update would be sent to customer: ${customerEmail}`);
+      console.log(`📧 Order: ${order.orderNumber}, Status: ${order.status}`);
+      return;
+    }
+
     const statusMessages = {
       confirmed: {
         subject: '✅ Order Confirmed - Ready for Processing',
@@ -537,7 +577,6 @@ exports.sendStatusUpdate = async (customerEmail, order, customerName, trackingIn
     await transporter.sendMail(mailOptions);
     console.log('✅ Status update email sent to:', customerEmail);
   } catch (error) {
-    console.error('❌ Error sending status update email:', error);
-    throw error;
+    console.error('❌ Error sending status update email:', error.message);
   }
 };
