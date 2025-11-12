@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+// const User = require('../models/User');
 const auth = require('../middleware/auth'); // Add this import
 
 const router = express.Router();
@@ -181,26 +182,44 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
+    console.log('🔐 Login attempt:', req.body.email);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array() 
+      });
     }
 
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // Find user and explicitly select password field
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      console.log('❌ User not found:', email);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
 
-    const isPasswordValid = await user.correctPassword(password, user.password);
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      console.log('❌ Invalid password for:', email);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
 
     const token = generateToken(user._id);
+    console.log('✅ Login successful:', email);
 
     res.json({
+      success: true,
       message: 'Login successful',
       token,
       user: {
@@ -209,12 +228,17 @@ router.post('/login', [
         email: user.email,
         phone: user.phone,
         role: user.role,
-        address: user.address,
-        logisticsName: user.logisticsName
+        address: user.address
       }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during login',
+      error: process.env.NODE_ENV === 'production' ? {} : error.message 
+    });
   }
 });
 
