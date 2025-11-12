@@ -82,6 +82,18 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
   };
 
+  const getCartSubtotal = () => {
+    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  };
+
+  const getCartTax = () => {
+    return getCartSubtotal() * 0.18;
+  };
+
+  const getCartTotalWithTax = () => {
+    return getCartSubtotal() + getCartTax();
+  };
+
   const getCartTotal = () => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   };
@@ -96,7 +108,9 @@ export const CartProvider = ({ children }) => {
     removeFromCart,
     updateQuantity,
     clearCart,
-    getCartTotal,
+    getCartTotal: getCartSubtotal, // This now returns subtotal
+    getCartTax, // New method for tax
+    getCartTotalWithTax, // New method for total with tax
     getCartItemsCount
   };
 

@@ -1867,6 +1867,43 @@ const SupplierDashboard = () => {
                   </div>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Original Price *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={productForm.originalPrice}
+                      onChange={(e) => setProductForm({...productForm, originalPrice: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Supplier Cost</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={productForm.supplierCost}
+                      onChange={(e) => setProductForm({...productForm, supplierCost: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+                    <input
+                      type="checkbox"
+                      checked={productForm.isBestSeller}
+                      onChange={(e) => setProductForm({...productForm, isBestSeller: e.target.checked})}
+                      style={{ width: '18px', height: '18px' }}
+                    />
+                    Mark as Best Seller
+                  </label>
+                </div>
+
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Description *</label>
                   <textarea
@@ -2022,10 +2059,18 @@ const SupplierDashboard = () => {
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: '0 0 0.5rem 0' }}>{product.name}</h4>
                     <p style={{ margin: '0.25rem 0', color: '#666' }}>{product.description}</p>
-                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: '#666' }}>
+                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: '#666', flexWrap: 'wrap' }}>
                       <span><strong>Price:</strong> ${product.price}</span>
+                      {product.originalPrice && (
+                        <span style={{ textDecoration: 'line-through', color: '#999' }}>
+                          <strong>Original:</strong> ${product.originalPrice}
+                        </span>
+                      )}
                       <span><strong>Stock:</strong> {product.stock}</span>
                       <span><strong>Category:</strong> {product.category}</span>
+                      {product.supplierCost && (
+                        <span><strong>Cost:</strong> ${product.supplierCost}</span>
+                      )}
                       {product.isBestSeller && (
                         <span style={{ color: '#e67e22', fontWeight: 'bold' }}>🔥 Best Seller</span>
                       )}

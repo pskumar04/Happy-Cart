@@ -1,465 +1,522 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { API_URL, IMAGE_BASE_URL } from '../config';
-import { useCart } from '../context/CartContext';
 import { toast } from 'react-toastify';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
+  
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [availableStock, setAvailableStock] = useState(0);
-  
-  const { addToCart } = useCart();
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     fetchProduct();
   }, [id]);
 
-  useEffect(() => {
-    // Update available stock when size changes
-    if (product && product.sizeStock && selectedSize) {
-      const stock = product.sizeStock[selectedSize] || 0;
-      setAvailableStock(stock);
-      // Reset quantity if it exceeds available stock
-      if (quantity > stock) {
-        setQuantity(1);
-      }
-    } else if (product) {
-      setAvailableStock(product.stock || 0);
-    }
-  }, [selectedSize, product, quantity]);
-
-  // Function to parse data that might be JSON strings
-  const parseProductData = (productData) => {
-    let sizes = [];
-    let colors = [];
-    let sizeStock = {};
-
-    try {
-      // Parse sizes - handle both array and JSON string
-      if (typeof productData.sizes === 'string') {
-        sizes = JSON.parse(productData.sizes);
-      } else if (Array.isArray(productData.sizes)) {
-        sizes = productData.sizes;
-      } else {
-        sizes = ['S', 'M', 'L', 'XL']; // Default fallback
-      }
-
-      // Parse colors - handle both array and JSON string
-      if (typeof productData.colors === 'string') {
-        colors = JSON.parse(productData.colors);
-      } else if (Array.isArray(productData.colors)) {
-        colors = productData.colors;
-      } else {
-        colors = ['Black', 'White', 'Blue']; // Default fallback
-      }
-
-      // Parse sizeStock - handle both object and JSON string
-      if (typeof productData.sizeStock === 'string') {
-        sizeStock = JSON.parse(productData.sizeStock);
-      } else if (productData.sizeStock && typeof productData.sizeStock === 'object') {
-        sizeStock = productData.sizeStock;
-      } else {
-        // Create default sizeStock based on sizes
-        sizes.forEach(size => {
-          sizeStock[size] = productData.stock || 0;
-        });
-      }
-    } catch (error) {
-      console.error('Error parsing product data:', error);
-      // Fallback to default values
-      sizes = ['S', 'M', 'L', 'XL'];
-      colors = ['Black', 'White', 'Blue'];
-      sizes.forEach(size => {
-        sizeStock[size] = productData.stock || 0;
-      });
-    }
-
-    return {
-      ...productData,
-      sizes,
-      colors,
-      sizeStock
-    };
-  };
-
   const fetchProduct = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(`${API_URL}/products/${id}`);
-      const productData = response.data;
-      console.log('Raw product data received:', productData);
+      setProduct(response.data);
       
-      // Parse the product data to ensure proper format
-      const processedProduct = parseProductData(productData);
-      console.log('Processed product data:', processedProduct);
-      
-      setProduct(processedProduct);
-      
-      // Set default selections
-      if (processedProduct.sizes && processedProduct.sizes.length > 0) {
-        setSelectedSize(processedProduct.sizes[0]);
+      // Set default size and color if available
+      if (response.data.sizes && response.data.sizes.length > 0) {
+        setSelectedSize(response.data.sizes[0]);
       }
-      if (processedProduct.colors && processedProduct.colors.length > 0) {
-        setSelectedColor(processedProduct.colors[0]);
+      if (response.data.colors && response.data.colors.length > 0) {
+        setSelectedColor(response.data.colors[0]);
       }
     } catch (error) {
       console.error('Error fetching product:', error);
-      toast.error('Product not found');
+      toast.error('Failed to load product');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddToCart = () => {
+  // Function to get available stock for selected size
+  const getAvailableStock = () => {
+    if (!product || !product.sizeStock) return 0;
+    
+    // If sizeStock is a string, parse it
+    let sizeStockObj;
+    try {
+      if (typeof product.sizeStock === 'string') {
+        sizeStockObj = JSON.parse(product.sizeStock);
+      } else {
+        sizeStockObj = product.sizeStock;
+      }
+    } catch (error) {
+      console.error('Error parsing sizeStock:', error);
+      return product.stock || 0;
+    }
+    
+    return sizeStockObj[selectedSize] || product.stock || 0;
+  };
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      toast.error('Please login to add items to cart');
+      navigate('/login');
+      return;
+    }
+
     if (!selectedSize && product.sizes && product.sizes.length > 0) {
       toast.error('Please select a size');
       return;
     }
 
-    addToCart(product, quantity, selectedSize, selectedColor);
-    toast.success('Product added to cart!');
+    const availableStock = getAvailableStock();
+    if (quantity > availableStock) {
+      toast.error(`Only ${availableStock} items available in stock`);
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast.error('Please select a valid quantity');
+      return;
+    }
+
+    setAddingToCart(true);
+    try {
+      // Add to cart
+      addToCart(product, quantity, selectedSize, selectedColor);
+      
+      // Update stock in backend (reduce stock when added to cart)
+      await updateProductStock(quantity);
+      
+      toast.success('Product added to cart!');
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add product to cart');
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
-  // Function to render star ratings
-  const renderStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
+  const updateProductStock = async (qty) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(<span key={i} style={{ color: '#ffc107', fontSize: '1.2rem' }}>★</span>);
+      // Calculate new stock
+      const availableStock = getAvailableStock();
+      const newStock = Math.max(0, availableStock - qty);
+
+      // Update size-specific stock
+      let updatedSizeStock = {};
+      try {
+        if (typeof product.sizeStock === 'string') {
+          updatedSizeStock = JSON.parse(product.sizeStock);
+        } else if (product.sizeStock) {
+          updatedSizeStock = { ...product.sizeStock };
+        }
+      } catch (error) {
+        console.error('Error parsing sizeStock for update:', error);
+        return;
+      }
+
+      // Update the specific size stock
+      if (selectedSize) {
+        updatedSizeStock[selectedSize] = newStock;
+      }
+
+      // Calculate total stock
+      const totalStock = Object.values(updatedSizeStock).reduce((sum, stock) => sum + parseInt(stock || 0), 0);
+
+      // Update product in backend
+      const updateData = {
+        stock: totalStock,
+        sizeStock: updatedSizeStock
+      };
+
+      await axios.put(`${API_URL}/products/${product._id}`, updateData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Update local state to reflect the change
+      setProduct(prev => ({
+        ...prev,
+        stock: totalStock,
+        sizeStock: updatedSizeStock
+      }));
+
+    } catch (error) {
+      console.error('Error updating product stock:', error);
+      // Don't show error to user as cart addition was successful
     }
-    
-    if (hasHalfStar) {
-      stars.push(<span key="half" style={{ color: '#ffc107', fontSize: '1.2rem' }}>★</span>);
+  };
+
+  const handleBuyNow = async () => {
+    if (!user) {
+      toast.error('Please login to buy products');
+      navigate('/login');
+      return;
     }
-    
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(<span key={`empty-${i}`} style={{ color: '#e0e0e0', fontSize: '1.2rem' }}>★</span>);
+
+    if (!selectedSize && product.sizes && product.sizes.length > 0) {
+      toast.error('Please select a size');
+      return;
     }
-    
-    return stars;
+
+    const availableStock = getAvailableStock();
+    if (quantity > availableStock) {
+      toast.error(`Only ${availableStock} items available in stock`);
+      return;
+    }
+
+    setAddingToCart(true);
+    try {
+      // Add to cart
+      addToCart(product, quantity, selectedSize, selectedColor);
+      
+      // Update stock in backend
+      await updateProductStock(quantity);
+      
+      // Navigate to checkout
+      navigate('/checkout');
+    } catch (error) {
+      console.error('Error in buy now:', error);
+      toast.error('Failed to process order');
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading product...</div>;
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+        <div>Loading product...</div>
+      </div>
+    );
   }
 
   if (!product) {
-    return <div style={{ textAlign: 'center', padding: '2rem' }}>Product not found</div>;
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+        <h2>Product not found</h2>
+        <p>The product you're looking for doesn't exist.</p>
+        <button 
+          onClick={() => navigate('/products')}
+          className="cta-button"
+        >
+          Back to Products
+        </button>
+      </div>
+    );
   }
 
-  // Get current available stock
-  const currentStock = product.sizeStock && selectedSize ? 
-    (product.sizeStock[selectedSize] || 0) : product.stock;
-
-  // Check if sizes array exists and has items
-  const hasSizes = product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0;
-  
-  // Check if colors array exists and has items
-  const hasColors = product.colors && Array.isArray(product.colors) && product.colors.length > 0;
+  const availableStock = getAvailableStock();
+  const isOutOfStock = availableStock <= 0;
 
   return (
-    <div style={{ 
-      maxWidth: '1200px', 
-      margin: '2rem auto', 
-      padding: '0 2rem' 
-    }}>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr', 
-        gap: '3rem',
-        background: 'white',
-        borderRadius: '15px',
-        padding: '2rem',
-        boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
-      }}>
+    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
         {/* Product Images */}
         <div>
-          <img 
-            src={product.images && product.images[0] ? `${IMAGE_BASE_URL}${product.images[0]}` : 'https://via.placeholder.com/500x500?text=Product+Image'} 
-            alt={product.name}
-            style={{
-              width: '100%',
-              height: '400px',
-              objectFit: 'cover',
-              borderRadius: '10px'
-            }}
-          />
-        </div>
-
-        {/* Product Info */}
-        <div>
-          <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{product.name}</h1>
-          <p style={{ color: '#666', marginBottom: '1.5rem' }}>{product.description}</p>
-          
-          {/* Product Rating */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              {renderStars(product.ratings?.average || 0)}
-              <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                ({product.ratings?.count || 0} reviews)
-              </span>
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#667eea' }}>
-              ${product.price}
-            </span>
-            {product.originalPrice > product.price && (
-              <span style={{ 
-                fontSize: '1.2rem', 
-                color: '#999', 
-                textDecoration: 'line-through' 
-              }}>
-                ${product.originalPrice}
-              </span>
-            )}
-          </div>
-
-          {/* Size Selection - MANDATORY - SHOW AS BOXES */}
-          {hasSizes && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ marginBottom: '0.5rem' }}>
-                Size: <span style={{ color: '#ff4757' }}>*</span>
-              </h3>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {product.sizes.map(size => {
-                  const sizeStock = product.sizeStock ? product.sizeStock[size] : 0;
-                  const isOutOfStock = sizeStock === 0;
-                  
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => !isOutOfStock && setSelectedSize(size)}
-                      disabled={isOutOfStock}
-                      style={{
-                        padding: '0.75rem 1.5rem',
-                        border: `2px solid ${
-                          isOutOfStock ? '#ccc' : 
-                          selectedSize === size ? '#667eea' : '#e1e8ed'
-                        }`,
-                        background: isOutOfStock ? '#f8f9fa' : 
-                                  selectedSize === size ? '#667eea' : 'white',
-                        color: isOutOfStock ? '#999' : 
-                              selectedSize === size ? 'white' : '#333',
-                        borderRadius: '8px',
-                        cursor: isOutOfStock ? 'not-allowed' : 'pointer',
-                        fontWeight: '600',
-                        fontSize: '1rem',
-                        minWidth: '60px',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedSize && product.sizeStock && (
-                <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                  Available: {product.sizeStock[selectedSize]} in stock
-                </p>
-              )}
-              {!selectedSize && (
-                <p style={{ color: '#ff4757', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                  Please select a size
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Color Selection - SHOW AS DROPDOWN */}
-          {hasColors && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ marginBottom: '0.5rem' }}>Color:</h3>
-              <select
-                value={selectedColor}
-                onChange={(e) => setSelectedColor(e.target.value)}
-                style={{
-                  width: '100%',
-                  maxWidth: '300px',
-                  padding: '0.75rem',
-                  border: '2px solid #e1e8ed',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  background: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">Select Color</option>
-                {product.colors.map(color => (
-                  <option key={color} value={color}>
-                    {color}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Quantity Selection */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ marginBottom: '0.5rem' }}>Quantity:</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                disabled={quantity <= 1}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: `2px solid ${quantity <= 1 ? '#ccc' : '#e1e8ed'}`,
-                  background: quantity <= 1 ? '#f8f9fa' : 'white',
-                  color: quantity <= 1 ? '#999' : '#333',
-                  borderRadius: '5px',
-                  cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '1.2rem',
-                  width: '45px',
-                  height: '45px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                -
-              </button>
-              <span style={{ 
-                fontSize: '1.2rem', 
-                fontWeight: 'bold', 
-                minWidth: '30px', 
-                textAlign: 'center',
-                padding: '0.5rem 1rem',
-                border: '2px solid #e1e8ed',
-                borderRadius: '5px'
-              }}>
-                {quantity}
-              </span>
-              <button
-                onClick={() => setQuantity(Math.min(currentStock, quantity + 1))}
-                disabled={quantity >= currentStock}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: `2px solid ${quantity >= currentStock ? '#ccc' : '#e1e8ed'}`,
-                  background: quantity >= currentStock ? '#f8f9fa' : 'white',
-                  color: quantity >= currentStock ? '#999' : '#333',
-                  borderRadius: '5px',
-                  cursor: quantity >= currentStock ? 'not-allowed' : 'pointer',
-                  fontSize: '1.2rem',
-                  width: '45px',
-                  height: '45px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                +
-              </button>
-              <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                {currentStock} available
-              </span>
-            </div>
-          </div>
-
-          {/* Add to Cart Button */}
-          <button
-            onClick={handleAddToCart}
-            disabled={currentStock === 0 || (hasSizes && !selectedSize)}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              background: (currentStock === 0 || (hasSizes && !selectedSize)) ? '#ccc' : '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              cursor: (currentStock === 0 || (hasSizes && !selectedSize)) ? 'not-allowed' : 'pointer',
-              marginBottom: '1rem'
-            }}
-          >
-            {currentStock === 0 ? 'Out of Stock' : 
-             (hasSizes && !selectedSize) ? 'Select Size to Add to Cart' : 'Add to Cart'}
-          </button>
-
-          <Link to="/products">
-            <button
+          <div style={{ 
+            background: 'white', 
+            borderRadius: '15px',
+            overflow: 'hidden',
+            boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+          }}>
+            <img
+              src={product.images && product.images[0] ? `${IMAGE_BASE_URL}${product.images[0]}` : 'https://via.placeholder.com/500x500?text=Product+Image'}
+              alt={product.name}
               style={{
                 width: '100%',
-                padding: '1rem',
-                background: 'transparent',
-                color: '#667eea',
-                border: '2px solid #667eea',
-                borderRadius: '8px',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
+                height: '500px',
+                objectFit: 'cover'
               }}
-            >
-              Continue Shopping
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Supplier Information Section */}
-      {product.supplier && (
-        <div style={{
-          background: 'white',
-          borderRadius: '15px',
-          padding: '2rem',
-          marginTop: '2rem',
-          boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{ marginBottom: '1.5rem', color: '#333' }}>Supplier Information</h2>
+            />
+          </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-            <div>
-              <h3 style={{ marginBottom: '1rem', color: '#667eea' }}>Supplier Details</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  background: '#667eea',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: '1.5rem'
+          {/* Additional Images */}
+          {product.images && product.images.length > 1 && (
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', overflowX: 'auto' }}>
+              {product.images.map((image, index) => (
+                <img
+                  key={index}
+                  src={`${IMAGE_BASE_URL}${image}`}
+                  alt={`${product.name} ${index + 1}`}
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Product Details */}
+        <div>
+          <div style={{ 
+            background: 'white', 
+            padding: '2rem', 
+            borderRadius: '15px',
+            boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+          }}>
+            <h1 style={{ margin: '0 0 1rem 0', fontSize: '2rem', color: '#333' }}>
+              {product.name}
+            </h1>
+            
+            {product.isBestSeller && (
+              <div style={{
+                display: 'inline-block',
+                background: '#e67e22',
+                color: 'white',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                marginBottom: '1rem'
+              }}>
+                🔥 BEST SELLER
+              </div>
+            )}
+
+            {/* Price */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              {product.originalPrice && product.originalPrice !== product.price ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                    ${product.price}
+                  </span>
+                  <span style={{ fontSize: '1.2rem', color: '#666', textDecoration: 'line-through' }}>
+                    ${product.originalPrice}
+                  </span>
+                  <span style={{ 
+                    background: '#27ae60', 
+                    color: 'white', 
+                    padding: '0.25rem 0.5rem', 
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold'
+                  }}>
+                    Save ${(product.originalPrice - product.price).toFixed(2)}
+                  </span>
+                </div>
+              ) : (
+                <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#333' }}>
+                  ${product.price}
+                </span>
+              )}
+            </div>
+
+            {/* Stock Information */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ 
+                color: isOutOfStock ? '#e74c3c' : '#27ae60', 
+                fontWeight: 'bold',
+                margin: 0 
+              }}>
+                {isOutOfStock ? 'Out of Stock' : `In Stock: ${availableStock} available`}
+              </p>
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '2rem' }}>
+              <p style={{ lineHeight: '1.6', color: '#666', margin: 0 }}>
+                {product.description}
+              </p>
+            </div>
+
+            {/* Size Selection */}
+            {product.sizes && product.sizes.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Size:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {product.sizes.map((size) => {
+                    // Get stock for this size
+                    let sizeStock = 0;
+                    try {
+                      if (typeof product.sizeStock === 'string') {
+                        const parsed = JSON.parse(product.sizeStock);
+                        sizeStock = parsed[size] || 0;
+                      } else if (product.sizeStock) {
+                        sizeStock = product.sizeStock[size] || 0;
+                      }
+                    } catch (error) {
+                      sizeStock = product.stock || 0;
+                    }
+
+                    const isSizeOutOfStock = sizeStock <= 0;
+                    
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => !isSizeOutOfStock && setSelectedSize(size)}
+                        style={{
+                          padding: '0.75rem 1.5rem',
+                          border: selectedSize === size ? '2px solid #3498db' : '1px solid #e1e8ed',
+                          background: isSizeOutOfStock ? '#f8f9fa' : (selectedSize === size ? '#3498db' : 'white'),
+                          color: isSizeOutOfStock ? '#999' : (selectedSize === size ? 'white' : '#333'),
+                          borderRadius: '8px',
+                          cursor: isSizeOutOfStock ? 'not-allowed' : 'pointer',
+                          fontWeight: '600'
+                        }}
+                        disabled={isSizeOutOfStock}
+                      >
+                        {size}
+                        {isSizeOutOfStock && ' (Out)'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Color Selection */}
+            {product.colors && product.colors.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Color:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {product.colors.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        border: selectedColor === color ? '2px solid #3498db' : '1px solid #e1e8ed',
+                        background: selectedColor === color ? '#3498db' : 'white',
+                        color: selectedColor === color ? 'white' : '#333',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quantity Selection */}
+            <div style={{ marginBottom: '2rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Quantity:
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <button
+                  onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                  disabled={quantity <= 1 || isOutOfStock}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    border: '1px solid #e1e8ed',
+                    background: 'white',
+                    borderRadius: '4px',
+                    cursor: quantity <= 1 || isOutOfStock ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  -
+                </button>
+                <span style={{ 
+                  padding: '0.5rem 1rem', 
+                  border: '1px solid #e1e8ed',
+                  borderRadius: '4px',
+                  minWidth: '50px',
+                  textAlign: 'center',
+                  display: 'inline-block'
                 }}>
-                  {product.supplier.name?.charAt(0).toUpperCase() || 'S'}
-                </div>
-                <div>
-                  <h4 style={{ margin: '0 0 0.25rem 0' }}>{product.supplier.name}</h4>
-                  <p style={{ margin: 0, color: '#666' }}>{product.supplier.logisticsName}</p>
-                </div>
+                  {quantity}
+                </span>
+                <button
+                  onClick={() => setQuantity(prev => Math.min(availableStock, prev + 1))}
+                  disabled={quantity >= availableStock || isOutOfStock}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    border: '1px solid #e1e8ed',
+                    background: 'white',
+                    borderRadius: '4px',
+                    cursor: quantity >= availableStock || isOutOfStock ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  +
+                </button>
               </div>
             </div>
 
-            <div>
-              <h3 style={{ marginBottom: '1rem', color: '#667eea' }}>Contact & Address</h3>
-              {product.supplier.address ? (
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={handleAddToCart}
+                disabled={isOutOfStock || addingToCart}
+                style={{
+                  flex: 1,
+                  padding: '1rem 2rem',
+                  background: isOutOfStock || addingToCart ? '#ccc' : '#3498db',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  cursor: isOutOfStock || addingToCart ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {addingToCart ? 'Adding...' : (isOutOfStock ? 'Out of Stock' : 'Add to Cart')}
+              </button>
+              
+              <button
+                onClick={handleBuyNow}
+                disabled={isOutOfStock || addingToCart}
+                style={{
+                  flex: 1,
+                  padding: '1rem 2rem',
+                  background: isOutOfStock || addingToCart ? '#ccc' : '#e74c3c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  cursor: isOutOfStock || addingToCart ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {addingToCart ? 'Processing...' : 'Buy Now'}
+              </button>
+            </div>
+
+            {/* Product Details */}
+            <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #e1e8ed' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.9rem' }}>
                 <div>
-                  <p style={{ margin: '0.25rem 0' }}>
-                    <strong>Address:</strong> {product.supplier.address.street}, {product.supplier.address.city}
-                  </p>
-                  <p style={{ margin: '0.25rem 0' }}>
-                    {product.supplier.address.state}, {product.supplier.address.zipCode}, {product.supplier.address.country}
-                  </p>
+                  <strong>Category:</strong> {product.category}
                 </div>
-              ) : (
-                <p style={{ color: '#666' }}>Address information not available</p>
-              )}
+                <div>
+                  <strong>Subcategory:</strong> {product.subcategory}
+                </div>
+                <div>
+                  <strong>Supplier:</strong> {product.supplier?.name || 'Unknown'}
+                </div>
+                <div>
+                  <strong>Total Stock:</strong> {product.stock}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

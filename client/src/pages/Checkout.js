@@ -37,6 +37,9 @@ const Checkout = () => {
 
     try {
       // Prepare order data
+      const subtotal = getCartTotal();
+      const tax = subtotal * 0.18;
+      const totalWithTax = subtotal + tax;
       const orderData = {
         items: cartItems.map(item => ({
           product: item.id,
@@ -52,7 +55,10 @@ const Checkout = () => {
           zipCode: '12345',
           country: 'Country'
         },
-        totalAmount: getCartTotal()
+        // totalAmount: getCartTotal()
+        subtotal: subtotal,
+        tax: tax,
+        totalAmount: totalWithTax
       };
 
       console.log('Placing order:', orderData);
@@ -212,7 +218,7 @@ const Checkout = () => {
                   marginTop: '1rem'
                 }}
               >
-                {loading ? 'Processing Payment...' : `Pay $${getCartTotal().toFixed(2)}`}
+                {loading ? 'Processing Payment...' : `Pay $${(getCartTotal() * 1.18).toFixed(2)}`}
               </button>
               
               <p style={{ 
@@ -297,7 +303,7 @@ const Checkout = () => {
                 marginBottom: '0.5rem'
               }}>
                 <span>Tax:</span>
-                <span>$0.00</span>
+                <span>${(getCartTotal() * 0.18).toFixed(2)}</span>
               </div>
               <div style={{ 
                 display: 'flex', 
@@ -308,7 +314,7 @@ const Checkout = () => {
                 paddingTop: '0.5rem'
               }}>
                 <span>Total:</span>
-                <span>${getCartTotal().toFixed(2)}</span>
+                <span>${(getCartTotal() * 1.18).toFixed(2)}</span>
               </div>
             </div>
           </div>

@@ -68,17 +68,21 @@ router.post('/', auth, async (req, res) => {
       }
     }
 
-    // Add tax and shipping
-    const tax = totalAmount * 0.18;
+    // Add tax and shipping (store breakdown for frontend)
+    const subtotal = totalAmount;
+    const tax = subtotal * 0.18;
     const shipping = 0; // Free shipping
-    const finalTotal = totalAmount + tax + shipping;
+    const finalTotal = subtotal + tax + shipping;
 
-    // Create order
+    // Create order with tax breakdown
     const order = new Order({
       customer: req.user.id,
       items: orderItems,
       shippingAddress,
       paymentMethod: paymentMethod || 'card',
+      subtotal: subtotal, // Store subtotal
+      tax: tax, // Store tax amount
+      shipping: shipping, // Store shipping
       totalAmount: finalTotal,
       orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       status: 'pending',
@@ -93,12 +97,42 @@ router.post('/', auth, async (req, res) => {
 
     await order.save();
     
-    // Update product stock
+    // Update product stock - BOTH general stock and size-specific stock
     for (let item of items) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        { $inc: { stock: -item.quantity } }
-      );
+      const product = await Product.findById(item.product);
+      
+      if (product) {
+        // Reduce general stock
+        product.stock = Math.max(0, product.stock - item.quantity);
+        
+        // Reduce size-specific stock if size is provided
+        if (item.size && product.sizeStock) {
+          try {
+            let sizeStock = {};
+            
+            // Parse sizeStock if it's a string
+            if (typeof product.sizeStock === 'string') {
+              sizeStock = JSON.parse(product.sizeStock);
+            } else {
+              sizeStock = { ...product.sizeStock };
+            }
+            
+            // Reduce stock for the specific size
+            if (sizeStock[item.size] !== undefined) {
+              sizeStock[item.size] = Math.max(0, sizeStock[item.size] - item.quantity);
+              product.sizeStock = sizeStock;
+            }
+            
+            console.log(`Reduced size stock for ${product.name}, size ${item.size} by ${item.quantity}`);
+          } catch (sizeStockError) {
+            console.error('Error updating size stock:', sizeStockError);
+            // Continue even if size stock update fails
+          }
+        }
+        
+        await product.save();
+        console.log(`✅ Stock updated for ${product.name}: -${item.quantity}`);
+      }
     }
 
     // Populate the order with product details before sending response
