@@ -902,11 +902,11 @@ const SupplierDashboard = () => {
       const formData = new FormData();
       formData.append('name', productForm.name);
       formData.append('description', productForm.description);
-      formData.append('price', productForm.price);
-      formData.append('originalPrice', productForm.originalPrice);
+      formData.append('price', productForm.price.toString());
+      formData.append('originalPrice', productForm.originalPrice.toString());
       formData.append('category', productForm.category);
       formData.append('subcategory', productForm.subcategory);
-      formData.append('isBestSeller', productForm.isBestSeller);
+      formData.append('isBestSeller', productForm.isBestSeller.toString()); // Convert to string
       
       formData.append('sizes', JSON.stringify(customSizes));
       formData.append('colors', JSON.stringify(customColors));
@@ -915,8 +915,11 @@ const SupplierDashboard = () => {
       const totalStock = Object.values(sizeStock).reduce((sum, stock) => sum + parseInt(stock || 0), 0);
       formData.append('stock', totalStock.toString());
 
+      // Only append new images if they are File objects
       selectedImages.forEach(image => {
-        formData.append('images', image);
+        if (image instanceof File) {
+          formData.append('images', image);
+        }
       });
 
       console.log('Submitting product with data:', {
@@ -924,7 +927,8 @@ const SupplierDashboard = () => {
         sizes: customSizes,
         colors: customColors,
         sizeStock: sizeStock,
-        totalStock: totalStock
+        totalStock: totalStock,
+        isBestSeller: productForm.isBestSeller
       });
 
       const token = localStorage.getItem('token');
@@ -932,18 +936,20 @@ const SupplierDashboard = () => {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        timeout: 30000 // 30 second timeout
       };
 
+      let response;
       if (editingProduct) {
-        // await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
-        const response = await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
+        response = await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
         toast.success('Product updated successfully');
       } else {
-        // await axios.post(`${API_URL}/products`, formData, config);
-        const response = await axios.post(`${API_URL}/products`, formData, config);
+        response = await axios.post(`${API_URL}/products`, formData, config);
         toast.success('Product added successfully');
       }
+      
+      console.log('Server response:', response.data);
       
       setShowProductForm(false);
       setEditingProduct(null);
@@ -974,9 +980,21 @@ const SupplierDashboard = () => {
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
-      // toast.error(error.response?.data?.message || 'Error saving product. Please check the console for details.');
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Error saving product';
-      toast.error(errorMessage);
+      
+      // Better error handling
+      if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error: Cannot connect to server');
+      } else if (error.response?.status === 413) {
+        toast.error('File too large: Please select images smaller than 5MB');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error: Please try again later');
+      } else {
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            error.message || 
+                            'Error saving product';
+        toast.error(errorMessage);
+      }
     } finally {
       setUploadingImages(false);
     }

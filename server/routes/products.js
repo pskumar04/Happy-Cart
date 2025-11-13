@@ -181,6 +181,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
   try {
     console.log('🔄 Updating product:', req.params.id);
     console.log('📦 Update data:', req.body);
+    console.log('📷 Files received:', req.files ? req.files.length : 0);
 
     const product = await Product.findById(req.params.id);
     
@@ -232,6 +233,9 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
     // Calculate total stock from sizeStock
     const totalStock = Object.values(parsedSizeStock).reduce((sum, stock) => sum + parseInt(stock || 0), 0);
 
+    // Handle boolean conversion properly
+    const isBestSellerBool = isBestSeller === 'true' || isBestSeller === true;
+
     const updateData = {
       name,
       description,
@@ -243,10 +247,10 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
       sizes: parsedSizes,
       colors: parsedColors,
       sizeStock: parsedSizeStock,
-      isBestSeller: isBestSeller === 'true'
+      isBestSeller: isBestSellerBool
     };
 
-    // Add new images if any
+    // Add new images if any - use correct path that works in production
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => `/uploads/${file.filename}`);
       updateData.images = [...product.images, ...newImages];
@@ -258,7 +262,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
       { new: true, runValidators: true }
     ).populate('supplier', 'name email phone address logisticsName');
 
-    console.log('✅ Product updated successfully:', req.params.id);
+    console.log('✅ Product updated successfully:', updatedProduct._id);
     
     res.json({
       success: true,
@@ -267,6 +271,16 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error updating product:', error);
+    
+    // More specific error handling
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        error: error.message
+      });
+    }
+    
     res.status(500).json({ 
       success: false,
       message: 'Error updating product', 
