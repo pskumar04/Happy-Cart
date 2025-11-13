@@ -226,22 +226,48 @@ const ProductDetail = () => {
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
         {/* Product Images */}
+        {/* // Product Images Section - Replace this part in your ProductDetail.js */}
         <div>
           <div style={{ 
             background: 'white', 
             borderRadius: '15px',
             overflow: 'hidden',
-            boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+            boxShadow: '0 5px 15px rgba(0,0,0,0.1)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '500px'
           }}>
-            <img
-              src={product.images && product.images[0] ? `${IMAGE_BASE_URL}${product.images[0]}` : 'https://via.placeholder.com/500x500?text=Product+Image'}
-              alt={product.name}
-              style={{
+            {product.images && product.images.length > 0 ? (
+              <img
+                src={`${IMAGE_BASE_URL}${product.images[0]}`}
+                alt={product.name}
+                style={{
+                  width: '100%',
+                  height: '500px',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  console.log('Image failed to load:', `${IMAGE_BASE_URL}${product.images[0]}`);
+                  e.target.src = 'https://via.placeholder.com/500x500/667eea/white?text=Product+Image';
+                  e.target.style.objectFit = 'contain';
+                  e.target.style.padding = '2rem';
+                }}
+              />
+            ) : (
+              <div style={{
                 width: '100%',
                 height: '500px',
-                objectFit: 'cover'
-              }}
-            />
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#f8f9fa',
+                color: '#666',
+                fontSize: '1.2rem'
+              }}>
+                No Image Available
+              </div>
+            )}
           </div>
           
           {/* Additional Images */}
@@ -257,7 +283,12 @@ const ProductDetail = () => {
                     height: '80px',
                     objectFit: 'cover',
                     borderRadius: '8px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    border: '2px solid transparent'
+                  }}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/80x80/667eea/white?text=Image';
+                    e.target.style.objectFit = 'contain';
                   }}
                 />
               ))}
