@@ -1,93 +1,157 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-
+import './Navbar.css'; // Make sure to import the CSS file
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { getCartItemsCount } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+    closeMenu();
+  };
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
   };
 
   return (
     <nav className="navbar">
-      <div className="navbar-container">
-        <Link to="/" className="logo">
+      <div className="nav-container">
+        {/* Logo */}
+        <Link to="/" className="logo" onClick={closeMenu}>
           <span className="logo-icon">🛒</span>
           Happy Cart
         </Link>
         
-        <ul className="nav-links">
-          <li><Link to="/">Home</Link></li>
-          <li><Link to="/products?bestseller=true">Best Sellers</Link></li>
-          <li><Link to="/products">Explore</Link></li>
+        {/* Hamburger Menu Icon */}
+        <div className="nav-toggle" onClick={toggleMenu}>
+          <span className={`hamburger-line ${isMenuOpen ? 'active' : ''}`}></span>
+          <span className={`hamburger-line ${isMenuOpen ? 'active' : ''}`}></span>
+          <span className={`hamburger-line ${isMenuOpen ? 'active' : ''}`}></span>
+        </div>
+
+        {/* Navigation Links */}
+        <div className={`nav-menu ${isMenuOpen ? 'active' : ''}`}>
+          <Link 
+            to="/" 
+            className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+            onClick={closeMenu}
+          >
+            Home
+          </Link>
+          
+          <Link 
+            to="/products?bestseller=true" 
+            className={`nav-link ${location.search.includes('bestseller=true') ? 'active' : ''}`}
+            onClick={closeMenu}
+          >
+            Best Sellers
+          </Link>
+          
+          <Link 
+            to="/products" 
+            className={`nav-link ${location.pathname === '/products' && !location.search.includes('bestseller=true') ? 'active' : ''}`}
+            onClick={closeMenu}
+          >
+            Explore
+          </Link>
           
           {user ? (
             <>
-              {/* <li>Hello, {user.name}</li> */}
-              <Link 
-                to="/profile" 
-                style={{
-                  color: 'white',
-                  textDecoration: 'none',
-                  fontWeight: '600',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '5px',
-                  transition: 'background 0.3s ease'
-                }}
-                onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
-                onMouseOut={(e) => e.target.style.background = 'transparent'}
-              >
-                Hello {user?.name}
-              </Link>
+              {/* User Greeting */}
+              <div className="nav-user-greeting">
+                Hello, {user.name}
+              </div>
+
+              {/* Supplier Dashboard */}
               {user.role === 'supplier' && (
-                <li><Link to="/supplier-dashboard">Dashboard</Link></li>
-              )}
-              {user.role === 'customer' && (
-                <li><Link to="/my-orders">My Orders</Link></li>
-              )}
-              <li>
-                <Link to="/cart" className="cart-icon">
-                  🛒
-                  {getCartItemsCount() > 0 && (
-                    <span className="cart-count">{getCartItemsCount()}</span>
-                  )}
-                </Link>
-              </li>
-              <li>
-                <button 
-                  onClick={handleLogout}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'white',
-                    cursor: 'pointer'
-                  }}
+                <Link 
+                  to="/supplier-dashboard" 
+                  className={`nav-link ${location.pathname === '/supplier-dashboard' ? 'active' : ''}`}
+                  onClick={closeMenu}
                 >
-                  Logout
-                </button>
-              </li>
+                  Dashboard
+                </Link>
+              )}
+
+              {/* Customer Orders */}
+              {user.role === 'customer' && (
+                <Link 
+                  to="/my-orders" 
+                  className={`nav-link ${location.pathname === '/my-orders' ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  My Orders
+                </Link>
+              )}
+
+              {/* Cart */}
+              <Link 
+                to="/cart" 
+                className="nav-link cart-link"
+                onClick={closeMenu}
+              >
+                <span className="cart-icon">🛒</span>
+                {getCartItemsCount() > 0 && (
+                  <span className="cart-count">{getCartItemsCount()}</span>
+                )}
+              </Link>
+
+              {/* Logout */}
+              <button 
+                onClick={handleLogout}
+                className="logout-btn"
+              >
+                Logout
+              </button>
             </>
           ) : (
             <>
-              <li><Link to="/login">Sign In</Link></li>
-              <li><Link to="/register">Sign Up</Link></li>
-              <li>
-                <Link to="/cart" className="cart-icon">
-                  🛒
-                  {getCartItemsCount() > 0 && (
-                    <span className="cart-count">{getCartItemsCount()}</span>
-                  )}
-                </Link>
-              </li>
+              {/* Login/Signup for non-authenticated users */}
+              <Link 
+                to="/login" 
+                className={`nav-link ${location.pathname === '/login' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                Sign In
+              </Link>
+              
+              <Link 
+                to="/register" 
+                className={`nav-link ${location.pathname === '/register' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                Sign Up
+              </Link>
+              
+              {/* Cart for guests */}
+              <Link 
+                to="/cart" 
+                className="nav-link cart-link"
+                onClick={closeMenu}
+              >
+                <span className="cart-icon">🛒</span>
+                {getCartItemsCount() > 0 && (
+                  <span className="cart-count">{getCartItemsCount()}</span>
+                )}
+              </Link>
             </>
           )}
-        </ul>
+        </div>
+
+        {/* Overlay for mobile when menu is open */}
+        {isMenuOpen && <div className="nav-overlay" onClick={closeMenu}></div>}
       </div>
     </nav>
   );
