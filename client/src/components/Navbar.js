@@ -76,9 +76,11 @@ const Navbar = () => {
             
             {user ? (
               <>
-                <li className="nav-user-greeting">
-                  Hello, {user.name}
-                </li>
+                <Link to="/profile">
+                  <li className="nav-user-greeting">
+                    Hello, {user.name}
+                  </li>
+                </Link>
 
                 {/* Supplier Dashboard */}
                 {user.role === 'supplier' && (
