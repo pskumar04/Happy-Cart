@@ -677,6 +677,7 @@ import axios from 'axios';
 import { API_URL, IMAGE_BASE_URL } from '../config';
 import { toast } from 'react-toastify';
 import SupplierReturnRequests from '../components/SupplierReturnRequests';
+import './SupplierDashboard.css';
 
 const SupplierDashboard = () => {
   const { user } = useAuth();
@@ -915,6 +916,10 @@ const SupplierDashboard = () => {
       const totalStock = Object.values(sizeStock).reduce((sum, stock) => sum + parseInt(stock || 0), 0);
       formData.append('stock', totalStock.toString());
 
+      if (editingProduct) {
+        formData.append('replaceImages', 'true'); // Add this flag
+      }
+
       // Only append new images if they are File objects
       selectedImages.forEach(image => {
         if (image instanceof File) {
@@ -928,7 +933,8 @@ const SupplierDashboard = () => {
         colors: customColors,
         sizeStock: sizeStock,
         totalStock: totalStock,
-        isBestSeller: productForm.isBestSeller
+        isBestSeller: productForm.isBestSeller,
+        selectedImagesCount: selectedImages.length
       });
 
       const token = localStorage.getItem('token');
@@ -944,9 +950,13 @@ const SupplierDashboard = () => {
       if (editingProduct) {
         response = await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
         toast.success('Product updated successfully');
+        setSelectedImages([]);
+        setImagePreviews([]);
       } else {
         response = await axios.post(`${API_URL}/products`, formData, config);
         toast.success('Product added successfully');
+        setSelectedImages([]);
+        setImagePreviews([]);
       }
       
       console.log('Server response:', response.data);
@@ -974,8 +984,6 @@ const SupplierDashboard = () => {
         'L': 0,
         'XL': 0
       });
-      setSelectedImages([]);
-      setImagePreviews([]);
       
       fetchProducts();
     } catch (error) {
@@ -1856,105 +1864,105 @@ const SupplierDashboard = () => {
           </div>
 
           {showProductForm && (
-            <div style={{
-              background: 'white',
-              padding: '2rem',
-              borderRadius: '10px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-              marginBottom: '2rem'
-            }}>
-              <h3>{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
+            <div className="product-form-container">
+              <h3 className="product-form-title">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h3>
               <form onSubmit={handleProductSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Product Name *</label>
+                {/* Product Name and Price */}
+                <div className="product-form-grid">
+                  <div className="product-form-group">
+                    <label className="product-form-label">Product Name *</label>
                     <input
                       type="text"
                       value={productForm.name}
                       onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-input"
                       required
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Price *</label>
+                  <div className="product-form-group">
+                    <label className="product-form-label">Price *</label>
                     <input
                       type="number"
                       step="0.01"
                       value={productForm.price}
                       onChange={(e) => setProductForm({...productForm, price: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-input"
                       required
                     />
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Original Price *</label>
+                {/* Original Price and Supplier Cost */}
+                <div className="product-form-grid">
+                  <div className="product-form-group">
+                    <label className="product-form-label">Original Price *</label>
                     <input
                       type="number"
                       step="0.01"
                       value={productForm.originalPrice}
                       onChange={(e) => setProductForm({...productForm, originalPrice: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-input"
                       required
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Supplier Cost</label>
+                  <div className="product-form-group">
+                    <label className="product-form-label">Supplier Cost</label>
                     <input
                       type="number"
                       step="0.01"
                       value={productForm.supplierCost}
                       onChange={(e) => setProductForm({...productForm, supplierCost: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-input"
                       placeholder="0.00"
                     />
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+                {/* Best Seller Checkbox */}
+                <div className="product-form-group">
+                  <label className="product-form-checkbox">
                     <input
                       type="checkbox"
                       checked={productForm.isBestSeller}
                       onChange={(e) => setProductForm({...productForm, isBestSeller: e.target.checked})}
-                      style={{ width: '18px', height: '18px' }}
                     />
                     Mark as Best Seller
                   </label>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Description *</label>
+                {/* Description */}
+                <div className="product-form-group">
+                  <label className="product-form-label">Description *</label>
                   <textarea
                     value={productForm.description}
                     onChange={(e) => setProductForm({...productForm, description: e.target.value})}
-                    style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px', minHeight: '100px' }}
+                    className="product-form-textarea"
                     required
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Category</label>
+                {/* Category and Subcategory */}
+                <div className="product-form-grid">
+                  <div className="product-form-group">
+                    <label className="product-form-label">Category</label>
                     <select
                       value={productForm.category}
                       onChange={(e) => setProductForm({...productForm, category: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-select"
                     >
                       <option value="men">Men</option>
                       <option value="women">Women</option>
                       <option value="kids">Kids</option>
                     </select>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Subcategory</label>
+                  <div className="product-form-group">
+                    <label className="product-form-label">Subcategory</label>
                     <select
                       value={productForm.subcategory}
                       onChange={(e) => setProductForm({...productForm, subcategory: e.target.value})}
-                      style={{ width: '100%', padding: '0.75rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                      className="product-form-select"
                     >
                       <option value="shirts">Shirts</option>
                       <option value="pants">Pants</option>
@@ -1965,17 +1973,17 @@ const SupplierDashboard = () => {
                 </div>
 
                 {/* Sizes and Stock Management */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Sizes & Stock</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem' }}>
+                <div className="product-form-group">
+                  <label className="product-form-label">Sizes & Stock</label>
+                  <div className="sizes-stock-grid">
                     {customSizes.map((size, index) => (
-                      <div key={index}>
-                        <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Size {size}</label>
+                      <div key={index} className="size-input-group">
+                        <label className="size-label">Size {size}</label>
                         <input
                           type="number"
                           value={sizeStock[size] || 0}
                           onChange={(e) => setSizeStock({...sizeStock, [size]: parseInt(e.target.value) || 0})}
-                          style={{ width: '100%', padding: '0.5rem', border: '1px solid #e1e8ed', borderRadius: '4px' }}
+                          className="size-input"
                           min="0"
                         />
                       </div>
@@ -1984,38 +1992,27 @@ const SupplierDashboard = () => {
                 </div>
 
                 {/* Image Upload */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Product Images *</label>
+                <div className="image-upload-container">
+                  <label className="product-form-label">Product Images *</label>
                   <input
                     type="file"
                     multiple
                     accept="image/*"
                     onChange={handleImageSelect}
-                    style={{ marginBottom: '1rem' }}
+                    className="file-input"
                   />
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div className="image-previews-container">
                     {imagePreviews.map((preview, index) => (
-                      <div key={index} style={{ position: 'relative' }}>
+                      <div key={index} className="image-preview-item">
                         <img
                           src={preview}
                           alt={`Preview ${index}`}
-                          style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
+                          className="image-preview"
                         />
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          style={{
-                            position: 'absolute',
-                            top: '-5px',
-                            right: '-5px',
-                            background: '#e74c3c',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '20px',
-                            height: '20px',
-                            cursor: 'pointer'
-                          }}
+                          className="remove-image-btn"
                         >
                           ×
                         </button>
@@ -2024,33 +2021,19 @@ const SupplierDashboard = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                {/* Form Buttons */}
+                <div className="form-buttons">
                   <button
                     type="submit"
                     disabled={uploadingImages}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      background: uploadingImages ? '#95a5a6' : '#27ae60',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: uploadingImages ? 'not-allowed' : 'pointer',
-                      fontWeight: '600'
-                    }}
+                    className="submit-btn"
                   >
                     {uploadingImages ? 'Uploading...' : (editingProduct ? 'Update Product' : 'Add Product')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowProductForm(false)}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      background: '#95a5a6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
+                    className="cancel-btn"
                   >
                     Cancel
                   </button>

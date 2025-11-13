@@ -182,6 +182,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
     console.log('🔄 Updating product:', req.params.id);
     console.log('📦 Update data:', req.body);
     console.log('📷 Files received:', req.files ? req.files.length : 0);
+    console.log('🔄 Replace images flag:', req.body.replaceImages);
 
     const product = await Product.findById(req.params.id);
     
@@ -205,7 +206,8 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
       isBestSeller,
       sizes,
       colors,
-      sizeStock
+      sizeStock,
+      replaceImages // Check if we should replace images
     } = req.body;
 
     // Parse sizes, colors, and sizeStock from JSON strings
@@ -250,11 +252,25 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
       isBestSeller: isBestSellerBool
     };
 
-    // Add new images if any - use correct path that works in production
+    // CRITICAL FIX: Handle image replacement logic
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => `/uploads/${file.filename}`);
-      updateData.images = [...product.images, ...newImages];
+      
+      if (replaceImages === 'true') {
+        // REPLACE all existing images with new ones
+        updateData.images = newImages;
+        console.log('🔄 Replacing all images with new ones');
+      } else {
+        // APPEND new images to existing ones (default behavior)
+        updateData.images = [...product.images, ...newImages];
+        console.log('➕ Appending new images to existing ones');
+      }
+    } else if (replaceImages === 'true') {
+      // If no new images but replace flag is true, clear all images
+      updateData.images = [];
+      console.log('🗑️ Clearing all images');
     }
+    // If no new images and no replace flag, keep existing images
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
@@ -263,6 +279,7 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
     ).populate('supplier', 'name email phone address logisticsName');
 
     console.log('✅ Product updated successfully:', updatedProduct._id);
+    console.log('🖼️ Final images array:', updatedProduct.images);
     
     res.json({
       success: true,
@@ -272,7 +289,6 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
   } catch (error) {
     console.error('❌ Error updating product:', error);
     
-    // More specific error handling
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
