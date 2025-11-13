@@ -690,6 +690,7 @@ const SupplierDashboard = () => {
   const [activeTab, setActiveTab] = useState('orders'); // Default to orders tab
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
+  const [existingImages, setExistingImages] = useState([]);
 
   const [customSizes, setCustomSizes] = useState(['S', 'M', 'L', 'XL']);
   const [sizeStock, setSizeStock] = useState({
@@ -854,13 +855,15 @@ const SupplierDashboard = () => {
       return true;
     });
 
-    if (validFiles.length + selectedImages.length > 5) {
+    // Check total images (existing + new selected)
+    if (validFiles.length + selectedImages.length + existingImages.length > 5) {
       toast.error('Maximum 5 images allowed');
       return;
     }
 
     setSelectedImages(prev => [...prev, ...validFiles]);
 
+    // Create previews for new files only
     validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -871,8 +874,19 @@ const SupplierDashboard = () => {
   };
 
   const removeImage = (index) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    // Check if we're removing an existing image or a new image
+    const totalExistingImages = existingImages.length;
+    
+    if (index < totalExistingImages) {
+      // Removing an existing image
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    } else {
+      // Removing a newly selected image
+      const newImageIndex = index - totalExistingImages;
+      setSelectedImages(prev => prev.filter((_, i) => i !== newImageIndex));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleProductSubmit = async (e) => {
@@ -893,7 +907,8 @@ const SupplierDashboard = () => {
         return;
       }
 
-      if (selectedImages.length === 0 && !editingProduct) {
+      // FIX: Check if we have any images (existing or new) when editing
+      if (selectedImages.length === 0 && existingImages.length === 0 && !editingProduct) {
         toast.error('Please select at least one product image');
         return;
       }
@@ -907,7 +922,7 @@ const SupplierDashboard = () => {
       formData.append('originalPrice', productForm.originalPrice.toString());
       formData.append('category', productForm.category);
       formData.append('subcategory', productForm.subcategory);
-      formData.append('isBestSeller', productForm.isBestSeller.toString()); // Convert to string
+      formData.append('isBestSeller', productForm.isBestSeller.toString());
       
       formData.append('sizes', JSON.stringify(customSizes));
       formData.append('colors', JSON.stringify(customColors));
@@ -916,8 +931,9 @@ const SupplierDashboard = () => {
       const totalStock = Object.values(sizeStock).reduce((sum, stock) => sum + parseInt(stock || 0), 0);
       formData.append('stock', totalStock.toString());
 
-      if (editingProduct) {
-        formData.append('replaceImages', 'true'); // Add this flag
+      // CRITICAL FIX: Only set replaceImages flag when we have new images to replace with
+      if (editingProduct && selectedImages.length > 0) {
+        formData.append('replaceImages', 'true');
       }
 
       // Only append new images if they are File objects
@@ -934,7 +950,9 @@ const SupplierDashboard = () => {
         sizeStock: sizeStock,
         totalStock: totalStock,
         isBestSeller: productForm.isBestSeller,
-        selectedImagesCount: selectedImages.length
+        existingImagesCount: existingImages.length,
+        selectedImagesCount: selectedImages.length,
+        replaceImages: editingProduct && selectedImages.length > 0
       });
 
       const token = localStorage.getItem('token');
@@ -943,24 +961,21 @@ const SupplierDashboard = () => {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
         },
-        timeout: 30000 // 30 second timeout
+        timeout: 30000
       };
 
       let response;
       if (editingProduct) {
         response = await axios.put(`${API_URL}/products/${editingProduct._id}`, formData, config);
         toast.success('Product updated successfully');
-        setSelectedImages([]);
-        setImagePreviews([]);
       } else {
         response = await axios.post(`${API_URL}/products`, formData, config);
         toast.success('Product added successfully');
-        setSelectedImages([]);
-        setImagePreviews([]);
       }
       
       console.log('Server response:', response.data);
       
+      // Reset all states after successful submission
       setShowProductForm(false);
       setEditingProduct(null);
       setProductForm({
@@ -984,12 +999,14 @@ const SupplierDashboard = () => {
         'L': 0,
         'XL': 0
       });
+      setSelectedImages([]);
+      setImagePreviews([]);
+      setExistingImages([]); // Reset existing images too
       
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
       
-      // Better error handling
       if (error.code === 'ERR_NETWORK') {
         toast.error('Network error: Cannot connect to server');
       } else if (error.response?.status === 413) {
@@ -1088,8 +1105,20 @@ const SupplierDashboard = () => {
       supplierCost: product.supplierCost ? product.supplierCost.toString() : '0.00'
     });
     
-    setImagePreviews(product.images ? product.images.map(img => `${IMAGE_BASE_URL}${img}`) : []);
-    setSelectedImages([]);
+    // CRITICAL FIX: Set existing images and create previews properly
+    if (product.images && product.images.length > 0) {
+      setExistingImages(product.images);
+      // Create preview URLs for existing images
+      const existingPreviews = product.images.map(image => 
+        `${IMAGE_BASE_URL}${image}`
+      );
+      setImagePreviews(existingPreviews);
+    } else {
+      setExistingImages([]);
+      setImagePreviews([]);
+    }
+    
+    setSelectedImages([]); // Clear any selected new images
     setShowProductForm(true);
   };
 
@@ -1993,32 +2022,128 @@ const SupplierDashboard = () => {
 
                 {/* Image Upload */}
                 <div className="image-upload-container">
-                  <label className="product-form-label">Product Images *</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                    Product Images * {editingProduct && <span style={{fontWeight: 'normal', color: '#666'}}>({existingImages.length} current images)</span>}
+                  </label>
                   <input
                     type="file"
                     multiple
                     accept="image/*"
                     onChange={handleImageSelect}
-                    className="file-input"
+                    style={{ marginBottom: '1rem' }}
                   />
-                  <div className="image-previews-container">
-                    {imagePreviews.map((preview, index) => (
-                      <div key={index} className="image-preview-item">
+                  
+                  {/* Image Previews Container */}
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {/* Existing Images */}
+                    {existingImages.map((image, index) => (
+                      <div key={`existing-${index}`} style={{ position: 'relative' }}>
                         <img
-                          src={preview}
-                          alt={`Preview ${index}`}
-                          className="image-preview"
+                          src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${image}`}
+                          alt={`Existing ${index + 1}`}
+                          style={{ 
+                            width: '100px', 
+                            height: '100px', 
+                            objectFit: 'cover', 
+                            borderRadius: '8px',
+                            border: '2px solid #3498db'
+                          }}
+                          onError={(e) => {
+                            e.target.src = '/placeholder-image.png';
+                          }}
                         />
+                        <div style={{
+                          position: 'absolute',
+                          top: '-5px',
+                          right: '-5px',
+                          background: '#3498db',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '2px 4px',
+                          borderRadius: '4px'
+                        }}>
+                          Current
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="remove-image-btn"
+                          style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            left: '-8px',
+                            background: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* New Image Previews */}
+                    {imagePreviews.slice(existingImages.length).map((preview, index) => (
+                      <div key={`new-${index}`} style={{ position: 'relative' }}>
+                        <img
+                          src={preview}
+                          alt={`New ${index + 1}`}
+                          style={{ 
+                            width: '100px', 
+                            height: '100px', 
+                            objectFit: 'cover', 
+                            borderRadius: '8px',
+                            border: '2px solid #27ae60'
+                          }}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          top: '-5px',
+                          right: '-5px',
+                          background: '#27ae60',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '2px 4px',
+                          borderRadius: '4px'
+                        }}>
+                          New
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(existingImages.length + index)}
+                          style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            left: '-8px',
+                            background: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
                         >
                           ×
                         </button>
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Help Text */}
+                  {editingProduct && (
+                    <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                      {selectedImages.length > 0 
+                        ? 'New images will replace all current images' 
+                        : 'Current images will be kept. Upload new images to replace them.'
+                      }
+                    </small>
+                  )}
                 </div>
 
                 {/* Form Buttons */}

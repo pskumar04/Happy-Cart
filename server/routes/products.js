@@ -262,13 +262,15 @@ router.put('/:id', auth, uploadProductImages, async (req, res) => {
         console.log('🔄 Replacing all images with new ones');
       } else {
         // APPEND new images to existing ones (default behavior)
-        updateData.images = [...product.images, ...newImages];
+        // updateData.images = [...product.images, ...newImages];
+        updateData.images = [...existingImages, ...newImages];
         console.log('➕ Appending new images to existing ones');
       }
     } else if (replaceImages === 'true') {
       // If no new images but replace flag is true, clear all images
-      updateData.images = [];
-      console.log('🗑️ Clearing all images');
+      updateData.images = existingImages;
+      // console.log('🗑️ Clearing all images');
+      console.log('🔄 Keeping existing images (no new images uploaded)');
     }
     // If no new images and no replace flag, keep existing images
 
