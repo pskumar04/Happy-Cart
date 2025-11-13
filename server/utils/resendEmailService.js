@@ -6,7 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 exports.sendOrderConfirmation = async (customerEmail, order, customerName) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [customerEmail],
       subject: `🎉 Order Confirmation - ${order.orderNumber}`,
       html: `
@@ -93,7 +93,7 @@ exports.sendOrderConfirmation = async (customerEmail, order, customerName) => {
 exports.sendSupplierNotification = async (supplierEmail, order, supplierName) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [supplierEmail],
       subject: `📦 New Order Received - ${order.orderNumber}`,
       html: `
@@ -186,7 +186,7 @@ exports.sendSupplierNotification = async (supplierEmail, order, supplierName) =>
 exports.sendCancelNotification = async (supplierEmail, order, supplierName, cancelReason) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [supplierEmail],
       subject: `❌ Order Cancelled - ${order.orderNumber}`,
       html: `
@@ -256,7 +256,7 @@ exports.sendCancelNotification = async (supplierEmail, order, supplierName, canc
 exports.sendReturnRequestNotification = async (supplierEmail, order, supplierName, returnReason, type) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [supplierEmail],
       subject: `📦 ${type === 'return' ? 'Return' : 'Exchange'} Request - ${order.orderNumber}`,
       html: `
@@ -341,7 +341,7 @@ exports.sendReturnStatusUpdate = async (customerEmail, order, customerName, item
     };
 
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [customerEmail],
       subject: `📦 Return Request Update - ${order.orderNumber}`,
       html: `
@@ -443,7 +443,7 @@ exports.sendStatusUpdate = async (customerEmail, order, customerName, trackingIn
     };
 
     const { data, error } = await resend.emails.send({
-      from: `"Happy Cart "<${process.en.FROM_EMAIL}>`, // CHANGED THIS LINE
+      from: `"Happy Cart "<${process.env.FROM_EMAIL}>`, // CHANGED THIS LINE
       to: [customerEmail],
       subject: `${statusData.icon} ${statusData.subject} - ${order.orderNumber}`,
       html: `
