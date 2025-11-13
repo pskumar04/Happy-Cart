@@ -19,16 +19,19 @@
 }
 
 /* Logo */
-.nav-logo a {
+.nav-logo {
   text-decoration: none;
   color: white;
-}
-
-.nav-logo h2 {
-  margin: 0;
-  padding: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.5rem;
   font-weight: bold;
+  padding: 1rem 0;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
 }
 
 /* Hamburger Menu */
@@ -37,6 +40,7 @@
   flex-direction: column;
   cursor: pointer;
   padding: 0.5rem;
+  z-index: 1001;
 }
 
 .hamburger-line {
@@ -64,72 +68,98 @@
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: 2rem;
+}
+
+.nav-links {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.nav-link {
-  color: white;
-  text-decoration: none;
-  padding: 1rem 0.5rem;
-  font-weight: 500;
-  transition: color 0.3s ease;
-  position: relative;
-}
-
-.nav-link:hover {
-  color: #f0f0f0;
-}
-
-.nav-link.active {
-  color: #ffeb3b;
-}
-
-.nav-link.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #ffeb3b;
-}
-
-/* User Section */
-.nav-user {
   display: flex;
   align-items: center;
   gap: 1rem;
-  color: white;
 }
 
-.user-greeting {
-  font-size: 0.9rem;
+.nav-links li {
+  margin: 0;
 }
 
-.logout-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+/* Ensure all links are white and have no underline */
+.nav-links .nav-link {
+  color: white !important;
+  text-decoration: none !important;
   padding: 0.5rem 1rem;
   border-radius: 4px;
-  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: block;
+}
+
+.nav-links .nav-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white !important;
+}
+
+.nav-links .nav-link.active {
+  color: #ffeb3b !important;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* User greeting as list item */
+.nav-user-greeting {
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
   transition: background 0.3s ease;
+  margin: 0;
+}
+
+.nav-user-greeting:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Cart link styles */
+.cart-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cart-count {
+  background: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+/* Logout button */
+.logout-btn {
+  background: none;
+  border: none;
+  color: white !important;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  transition: background 0.3s ease;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
+  color: white !important;
 }
 
-/* Auth Links */
-.nav-auth {
-  display: flex;
-  gap: 1rem;
-}
-
-/* Mobile Styles */
+/* ========== MOBILE STYLES ========== */
 @media screen and (max-width: 768px) {
   .nav-toggle {
     display: flex;
@@ -146,49 +176,43 @@
     justify-content: flex-start;
     align-items: flex-start;
     padding: 5rem 2rem 2rem;
-    gap: 0;
     transition: right 0.3s ease;
     box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+    z-index: 1000;
   }
 
   .nav-menu.active {
     right: 0;
   }
 
-  .nav-link {
-    padding: 1rem 0;
+  .nav-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     width: 100%;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: 1.1rem;
   }
 
-  .nav-link:last-child {
+  .nav-links li {
+    width: 100%;
+  }
+
+  .nav-links .nav-link,
+  .nav-user-greeting,
+  .logout-btn {
+    width: 100%;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 0;
+    text-align: left;
+  }
+
+  .nav-links .nav-link:last-child,
+  .nav-links li:last-child .logout-btn {
     border-bottom: none;
   }
 
-  .nav-user {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-    width: 100%;
-    padding: 1rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    margin-top: 1rem;
-  }
-
-  .nav-auth {
-    flex-direction: column;
-    width: 100%;
-    gap: 0;
-  }
-
-  .user-greeting {
-    font-size: 1rem;
-  }
-
-  .logout-btn {
-    width: 100%;
-    text-align: center;
+  .cart-link {
+    justify-content: flex-start;
   }
 
   /* Overlay */
@@ -199,7 +223,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
-    z-index: -1;
+    z-index: 999;
   }
 }
 
@@ -209,7 +233,7 @@
     padding: 0 0.5rem;
   }
 
-  .nav-logo h2 {
+  .nav-logo {
     font-size: 1.3rem;
   }
 
